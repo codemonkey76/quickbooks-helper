@@ -3,6 +3,8 @@
         "illuminate/support": "^9.5",
         "php": "^8.1",
         "quickbooks/v3-php-sdk": "^6.0",
-        "illuminate/console": "^9.5"
+        "illuminate/console": "^9.5",
+        "illuminate/database": "^9.5",
+        "laravel/framework": "^9.5"
     }
 }

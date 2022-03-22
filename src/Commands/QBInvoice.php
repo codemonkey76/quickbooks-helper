@@ -26,11 +26,7 @@ class QBInvoice extends Command
      *
      * @var string
      */
-    protected $description = 'Sync orders to quickbook invoice';
-
-    private $orderTaxcode = NULL;
-
-    private $settings = [];
+    protected $description = 'Sync configured model to quickbook invoices';
 
     /**
      * Create a new command instance.
