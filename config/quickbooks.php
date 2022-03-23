@@ -11,6 +11,15 @@ return [
 
     'customer' => [
         'model' => 'App\Models\User',
+        'conditions' => [
+            'role' => [
+                'Approved'
+            ],
+            'with' => [
+                'client'
+            ]
+        ],
+
         'qb_customer_id' => 'qb_customer_id',
         'fully_qualified_name' => 'name',
         'email_address' => 'email',
@@ -24,14 +33,7 @@ return [
         'suburb' => 'suburb',
         'postcode' => 'postcode',
         'country' => 'country',
-        'scopes' => [
-            'role' => [
-                'Approved'
-            ],
-            'with' => [
-                'client'
-            ]
-        ]
+
     ],
 
     'data_service' => [
