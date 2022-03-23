@@ -119,7 +119,15 @@ class QBCustomer extends Command
                         $customer->qb_customer_id = null;
                     }
                 }
+                $this->info('Calling method:' . $objMethod);
+                $this->info('Params:');
+                $this->info(json_encode($params));
+
                 $QBCustomer = Customer::$objMethod(...$params);
+
+                $this->info('Customer: ');
+                $this->info(json_encode($QBCustomer));
+                return;
                 $result = $quickbooks->dsCall($apiMethod, $QBCustomer);
 
                 if ($result && $customer[$config['qb_customer_id']])
@@ -140,6 +148,7 @@ class QBCustomer extends Command
         $config = config('quickbooks.customer');
 
         return [
+            "FullyQualifiedName" => data_get($customerModel, $config['fully_qualified_name']),
             "PrimaryEmailAddr" => [
                 "Address" => data_get($customerModel, $config['email_address'])
             ],
