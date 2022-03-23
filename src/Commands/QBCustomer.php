@@ -140,7 +140,6 @@ class QBCustomer extends Command
         $config = config('quickbooks.customer');
 
         return [
-            "FullyQualifiedName" => data_get($customerModel, $config['fully_qualified_name']),
             "PrimaryEmailAddr" => [
                 "Address" => data_get($customerModel, $config['email_address'])
             ],
