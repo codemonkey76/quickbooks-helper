@@ -140,23 +140,23 @@ class QBCustomer extends Command
         $config = config('quickbooks.customer');
 
         return [
-            "FullyQualifiedName" => $customerModel[$config['quickbooks.customer.fully_qualified_name']] ?? null,
+            "FullyQualifiedName" => data_get($customerModel, $config['fully_qualified_name']),
             "PrimaryEmailAddr" => [
-                "Address" => $customerModel[$config['quickbooks.customer.email_address']] ?? null
+                "Address" => data_get($customerModel, $config['email_address'])
             ],
             "PrimaryPhone" => [
-                "FreeFormNumber" => $customerModel[$config['quickbooks.customer.phone']] ?? null
+                "FreeFormNumber" => data_get($customerModel, $config['phone'])
             ],
-            "DisplayName" => $customerModel[$config['quickbooks.customer.display_name']] ?? null,
-            "GivenName" => $customerModel[$config['quickbooks.customer.given_name']] ?? null,
-            "FamilyName" => $customerModel[$config['quickbooks.customer.family_name']] ?? null,
-            "CompanyName" => $customerModel[$config['quickbooks.customer.company_name']] ?? null,
+            "DisplayName" => data_get($customerModel, $config['display_name']),
+            "GivenName" => data_get($customerModel, $config['given_name']),
+            "FamilyName" => data_get($customerModel, $config['family_name']),
+            "CompanyName" => data_get($customerModel, $config['company_name']),
             "BillAddr" => [
-                "Line1" => $customerModel[$config['quickbooks.customer.address_line_1']] ?? null,
-                "City" => $customerModel[$config['quickbooks.customer.city']] ?? null,
-                "CountrySubDivisionCode" => $customerModel[$config['quickbooks.customer.suburb']] ?? null,
-                "PostalCode" => $customerModel[$config['quickbooks.customer.postcode']] ?? null,
-                "Country" => $customerModel[$config['quickbooks.customer.country']] ?? null
+                "Line1" => data_get($customerModel, $config['address_line_1']),
+                "City" => data_get($customerModel, $config['city']),
+                "CountrySubDivisionCode" => data_get($customerModel, $config['suburb']),
+                "PostalCode" => data_get($customerModel, $config['postcode']),
+                "Country" => data_get($customerModel, $config['country'])
             ]
         ];
     }

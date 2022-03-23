@@ -19,7 +19,7 @@ class QuickBookHelper
         }
 
         Auth::logInUsingId($recentConnectedUser->user_id);
-        $this->app = app('Spinen\QuickBooks\Client');
+        $this->app = app('Quickbooks');
         $this->dataService = $this->app->getDataService();
         $this->dataService->setMinorVersion("34");
     }
