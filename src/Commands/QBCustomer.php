@@ -72,7 +72,7 @@ class QBCustomer extends Command
             try
             {
                 $this->info("Customer sync #{$customer->id}");
-                $params = $this->prepareData($customer);
+                $params[] = $this->prepareData($customer);
                 $objMethod = 'create';
                 $apiMethod = 'Add';
                 $customerId = $customer[$config['qb_customer_id']] ?? null;
@@ -119,15 +119,7 @@ class QBCustomer extends Command
                         $customer->qb_customer_id = null;
                     }
                 }
-                $this->info('Calling method:' . $objMethod);
-                $this->info('Params:');
-                $this->info(json_encode($params));
-
                 $QBCustomer = Customer::$objMethod(...$params);
-
-                $this->info('Customer: ');
-                $this->info(json_encode($QBCustomer));
-                return;
                 $result = $quickbooks->dsCall($apiMethod, $QBCustomer);
 
                 if ($result && $customer[$config['qb_customer_id']])
