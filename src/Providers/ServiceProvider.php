@@ -2,6 +2,8 @@
 
 namespace Codemonkey76\Quickbooks\Providers;
 
+use Codemonkey76\Quickbooks\Commands\QBCustomer;
+use Codemonkey76\Quickbooks\Commands\QBInvoice;
 use Codemonkey76\Quickbooks\Http\Middleware\QuickbooksConnected;
 use Illuminate\Routing\Router;
 
@@ -21,15 +23,29 @@ class ServiceProvider extends \Illuminate\Support\ServiceProvider
     public function boot()
     {
         $this->loadMigrationsFrom(__DIR__ . '/../../database/migrations');
-        $this->loadViewsFrom(__DIR__ . '/../../resources/views', 'quickbooks');
+
 
         $this
+            ->registerCommands()
+            ->registerMigrations()
             ->registerMiddleware()
             ->registerPublishes()
             ->registerRoutes()
             ->registerViews();
     }
 
+    public function registerCommands(): Self
+    {
+        if ($this->app->runningInConsole())
+        {
+            $this->commands([
+                QBInvoice::class,
+                QBCustomer::class
+            ]);
+        }
+
+        return $this;
+    }
     public function registerMiddleware(): Self
     {
         $this->app->router->aliasMiddleware('quickbooks', QuickbooksConnected::class);
@@ -37,16 +53,18 @@ class ServiceProvider extends \Illuminate\Support\ServiceProvider
         return $this;
     }
 
+    public function registerMigrations(): Self
+    {
+        $this->loadMigrationsFrom(__DIR__ . '/../../database/migrations');
+
+        return $this;
+    }
+
     public function registerPublishes(): Self
     {
-        if ($this->app->runningInConsole())
-        {
-            $this->loadMigrationsFrom(__DIR__ . '../../database/migrations');
-
-            $this->publishes([__DIR__ . '/../../config/quickbooks.php' => config_path('quickbooks.php')], 'quickbooks-config');
-            $this->publishes([__DIR__ . '/../../database/migrations' => database_path('migrations')], 'quickbooks-migrations');
-            $this->publishes([__DIR__ . '/../../resources/views' => base_path('resources/views/vendor/quickbooks')],  'quickbooks-views');
-        }
+        $this->publishes([__DIR__ . '/../../config/quickbooks.php' => config_path('quickbooks.php')], 'quickbooks-config');
+        $this->publishes([__DIR__ . '/../../database/migrations' => database_path('migrations')], 'quickbooks-migrations');
+        $this->publishes([__DIR__ . '/../../resources/views' => base_path('resources/views/vendor/quickbooks')],  'quickbooks-views');
 
         return $this;
     }
