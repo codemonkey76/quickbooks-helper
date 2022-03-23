@@ -17,6 +17,13 @@ return [
             ],
             'with' => [
                 'client'
+            ],
+            'has' => [
+                'orders'
+            ],
+            'sync_failed' => [
+                '>',
+                3
             ]
         ],
 

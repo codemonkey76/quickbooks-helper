@@ -48,34 +48,20 @@ class QBCustomer extends Command
 
         collect(config('quickbooks.customer.conditions'))
             ->each(function($params, $condition) use (&$query) {
-                $this->info('Query is currently: ' . $query->toSql());
-
                 if (method_exists($query, $condition))
-                {
-                    $this->info('applying condition: ' . $condition);
                     $query->$condition(...$params);
-                }
-                else
-                {
-                    $this->info('Cannot apply condition: ' . $condition);
-                }
-
-
-                $this->info('Query is now: ' . $query->toSql());
-
             });
 
+        if ($ids = $this->option('id')) {
+             $query->whereIn('id', $ids);
+        } else {
+             $query
+                ->whereNull(config('quickbooks.customer.qb_customer_id'))
+                ->limit($this->option('limit'));
+        }
 
         $this->info($query->toSql());
 
-        return;
-
-        // User::query()->with('client')->role(User::ROLE_APPROVED);
-        // if ($ids = $this->option('id')) {
-        //     $query->whereIn('id', $ids);
-        // } else {
-        //     $query->has('orders')->whereNull('qb_customer_id')->where('sync_failed', '<', self::MAX_FAILED)->limit($this->option('limit'));
-        // }
 
         // $users = $query->get();
 
