@@ -47,7 +47,7 @@ class QBCustomer extends Command
         $query = config('quickbooks.customer.model')::query();
 
         collect(config('quickbooks.customer.scopes'))
-            ->each(fn($scope, $params) => $query = method_exists($query, $scope) ? $query->$scope(...$params) : $query);
+            ->each(fn($params, $scope) => $query = method_exists($query, $scope) ? $query->$scope(...$params) : $query);
 
         $this->info($query->toSql());
 
