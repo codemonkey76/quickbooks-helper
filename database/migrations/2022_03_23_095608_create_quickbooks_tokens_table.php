@@ -15,7 +15,12 @@ return new class extends Migration
     {
         Schema::create('quickbooks_tokens', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger(config('quickbooks.user.keys.foreign'));
+
+            $table
+                ->foreignIdFor(config('quickbooks.user.model'), config('quickbooks.user.keys.foreign'))
+                ->constrained()
+                ->onDelete('cascade');
+
             $table->unsignedBigInteger('realm_id');
             $table->longText('access_token');
             $table->dateTime('access_token_expires_at');
@@ -23,11 +28,6 @@ return new class extends Migration
             $table->datetime('refresh_token_expires_at');
 
             $table->timestamps();
-
-            $table
-                ->foreignIdFor(config('quickbooks.user.model'), config('quickbooks.user.keys.foreign'))
-                ->constrained()
-                ->onDelete('cascade');
         });
     }
 
