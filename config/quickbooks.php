@@ -10,7 +10,7 @@ return [
     ],
 
     'customer' => [
-        'customer_model' => 'App\Models\Client',
+        'model' => 'App\Models\User',
         'qb_customer_id' => 'qb_customer_id',
         'fully_qualified_name' => 'name',
         'email_address' => 'email',
