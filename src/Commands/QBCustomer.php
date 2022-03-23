@@ -46,9 +46,9 @@ class QBCustomer extends Command
     {
         $config=config('quickbooks.customer');
 
-        $query = $config('model')::query();
+        $query = $config['model']::query();
 
-        collect($config('conditions'))
+        collect($config['conditions'])
             ->each(function($params, $condition) use (&$query) {
                 if (method_exists($query, $condition))
                     $query->$condition(...$params);
@@ -58,7 +58,7 @@ class QBCustomer extends Command
              $query->whereIn('id', $ids);
         } else {
              $query
-                ->whereNull($config('qb_customer_id'))
+                ->whereNull($config['qb_customer_id'])
                 ->limit($this->option('limit'));
         }
 
@@ -75,12 +75,12 @@ class QBCustomer extends Command
                 $params = $this->prepareData($customer);
                 $objMethod = 'create';
                 $apiMethod = 'Add';
-                $customerId = $customer[$config('qb_customer_id')] ?? null;
+                $customerId = $customer[$config['qb_customer_id']] ?? null;
 
                 if (!$customerId)
                 {
-                    $firstName = data_get($customer, $config('given_name'));
-                    $lastName = data_get($customer, $config('family_name'));
+                    $firstName = data_get($customer, $config['given_name']);
+                    $lastName = data_get($customer, $config['family_name']);
 
                     if (!$firstName || !$lastName)
                     {
@@ -122,8 +122,8 @@ class QBCustomer extends Command
                 $QBCustomer = Customer::$objMethod(...$params);
                 $result = $quickbooks->dsCall($apiMethod, $QBCustomer);
 
-                if ($result && $customer[$config('qb_customer_id')])
-                    $customer->update([$config('qb_customer_id') => $result->Id]);
+                if ($result && $customer[$config['qb_customer_id']])
+                    $customer->update([$config['qb_customer_id'] => $result->Id]);
 
             } catch (Exception $e) {
                 $customer->increment('sync_failed');
@@ -137,24 +137,26 @@ class QBCustomer extends Command
 
     private function prepareData($customerModel)
     {
+        $config = config('quickbooks.customer');
+
         return [
-            "FullyQualifiedName" => $customerModel[config('quickbooks.customer.fully_qualified_name')] ?? null,
+            "FullyQualifiedName" => $customerModel[$config['quickbooks.customer.fully_qualified_name']] ?? null,
             "PrimaryEmailAddr" => [
-                "Address" => $customerModel[config('quickbooks.customer.email_address')] ?? null
+                "Address" => $customerModel[$config['quickbooks.customer.email_address']] ?? null
             ],
             "PrimaryPhone" => [
-                "FreeFormNumber" => $customerModel[config('quickbooks.customer.phone')] ?? null
+                "FreeFormNumber" => $customerModel[$config['quickbooks.customer.phone']] ?? null
             ],
-            "DisplayName" => $customerModel[config('quickbooks.customer.display_name')] ?? null,
-            "GivenName" => $customerModel[config('quickbooks.customer.given_name')] ?? null,
-            "FamilyName" => $customerModel[config('quickbooks.customer.family_name')] ?? null,
-            "CompanyName" => $customerModel[config('quickbooks.customer.company_name')] ?? null,
+            "DisplayName" => $customerModel[$config['quickbooks.customer.display_name']] ?? null,
+            "GivenName" => $customerModel[$config['quickbooks.customer.given_name']] ?? null,
+            "FamilyName" => $customerModel[$config['quickbooks.customer.family_name']] ?? null,
+            "CompanyName" => $customerModel[$config['quickbooks.customer.company_name']] ?? null,
             "BillAddr" => [
-                "Line1" => $customerModel[config('quickbooks.customer.address_line_1')] ?? null,
-                "City" => $customerModel[config('quickbooks.customer.city')] ?? null,
-                "CountrySubDivisionCode" => $customerModel[config('quickbooks.customer.suburb')] ?? null,
-                "PostalCode" => $customerModel[config('quickbooks.customer.postcode')] ?? null,
-                "Country" => $customerModel[config('quickbooks.customer.country')] ?? null
+                "Line1" => $customerModel[$config['quickbooks.customer.address_line_1']] ?? null,
+                "City" => $customerModel[$config['quickbooks.customer.city']] ?? null,
+                "CountrySubDivisionCode" => $customerModel[$config['quickbooks.customer.suburb']] ?? null,
+                "PostalCode" => $customerModel[$config['quickbooks.customer.postcode']] ?? null,
+                "Country" => $customerModel[$config['quickbooks.customer.country']] ?? null
             ]
         ];
     }
