@@ -47,10 +47,19 @@ class QBCustomer extends Command
         $query = config('quickbooks.customer.model')::query();
 
         collect(config('quickbooks.customer.conditions'))
-            ->each(function($params, $scope) use (&$query) {
+            ->each(function($params, $condition) use (&$query) {
                 $this->info('Query is currently: ' . $query->toSql());
 
-                $query->$scope(...$params);
+                if (method_exists($query, $condition))
+                {
+                    $this->info('applying condition: ' . $condition);
+                    $query->$condition(...$params);
+                }
+                else
+                {
+                    $this->info('Cannot apply condition: ' . $condition);
+                }
+
 
                 $this->info('Query is now: ' . $query->toSql());
 
