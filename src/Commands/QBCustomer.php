@@ -44,7 +44,7 @@ class QBCustomer extends Command
      */
     public function handle()
     {
-        $query = call_user_func(config('quickbooks.customer.model'), ['query']);
+        $query = config('quickbooks.customer.model')::query();
 
         collect(config('quickbooks.customer.conditions'))
             ->each(function($params, $scope) use (&$query) {
