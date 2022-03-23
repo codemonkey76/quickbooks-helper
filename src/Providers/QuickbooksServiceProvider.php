@@ -2,61 +2,35 @@
 
 namespace Codemonkey76\Quickbooks\Providers;
 
-use Codemonkey76\Quickbooks\Http\Middleware\QuickbooksConnected;
-use Illuminate\Support\ServiceProvider as LaravelServiceProvider;
+use Illuminate\contracts\Foundation\Application;
+use Illuminate\Support\ServiceProvider;
+
+use Codemonkey76\Quickbooks\QuickbooksClient;
 
 /**
- * Class ServiceProvider
- * 
+ * Class QuickbooksServiceProvider
+ *
  * @package Codemonkey76\Quickbooks
 */
-class ServiceProvider extends LaravelServiceProvider
+class QuickbooksServiceProvider extends ServiceProvider
 {
-    public function boot()
+    protected $defer = true;
+
+    public function provides()
     {
-        $this->registerMiddleware();
-        $this->registerPublishes();
-        $this->registerRoutes();
-        $this->registerViews();
+        return [
+            QuickbooksClient::class
+        ];
     }
 
     public function register()
     {
-        $this->mergeConfigFrom(__DIR__ . '/../../config/quickbooks.php', 'quickbooks');
+        $this->app->bind(QuickbooksClient::class, fn(Application $app) =>
+            new QuickbooksClient($app->config->get('quickbooks'), ($app->auth->user()->quickbooksToken) ?: $app->auth->user()->quickbooksToken()->make())
+        );
+
+        $this->app->alias(QuickbooksClient::class, 'Quickbooks');
     }
 
-    public function registerMiddleware()
-    {
-        $this->app->router->aliasMiddleware('quickbooks', QuickbooksConnected::class);
-    }
-
-    public function registerPublishes()
-    {
-        if ($this->app->runningInConsole()) {
-            $this->loadMigrationsFrom(__DIR__ . '/../../database/migrations');
-
-            $this->publishes([
-                __DIR__ . '/../../config/quickbooks.php' => config_path('quickbooks.php'),
-            ], 'quickbooks-config');
-
-            $this->publishes([
-                __DIR__ . '/../../database/migrations' => database_path('migrations'),
-            ], 'quickbooks-migrations');
-
-            $this->publishes([
-                __DIR__ . '/../../resources/views' => base_path('resources/views/vendor/quickbooks'),
-            ], 'quickbooks-views');
-        }
-    }
-
-    public function registerRoutes()
-    {
-
-    }
-
-    public function registerViews()
-    {
-
-    }
 
 }

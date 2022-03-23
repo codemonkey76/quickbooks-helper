@@ -1,10 +1,45 @@
 {
+    "name": "codemonkey76/quickbooks-helper",
+    "description": "Quickbooks helper for Laravel",
+    "keywords": [
+        "quickbooks",
+        "laravel",
+        "client",
+        "codemonkey76"
+    ],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Shane Poppleton",
+            "email": "shane@bjja.com.au"
+        }
+    ],
+
     "require": {
-        "illuminate/support": "^9.5",
-        "php": "^8.1",
-        "quickbooks/v3-php-sdk": "^6.0",
-        "illuminate/console": "^9.5",
-        "illuminate/database": "^9.5",
-        "laravel/framework": "^9.5"
-    }
+        "php": "~8",
+        "illuminate/support": "~9",
+        "quickbooks/v3-php-sdk": "~6",
+        "illuminate/console": "~9",
+        "illuminate/database": "~9",
+        "laravel/framework": "~9",
+        "nesbot/carbon": "~2"
+    },
+    "autoload": {
+        "psr-4": {
+            "Codemonkey76\\Quickbooks\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Codemonkey76\\Quickbooks\\Providers\\ServiceProvider",
+                "Codemonkey76\\Quickbooks\\Providers\\QuickbooksServiceProvider"
+            ]
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
 }
