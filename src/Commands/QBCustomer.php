@@ -3,7 +3,7 @@
 namespace Codemonkey76\Quickbooks\Commands;
 
 use Codemonkey76\Quickbooks\Services\QuickBookHelper;
-
+use Exception;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Log;
@@ -44,9 +44,11 @@ class QBCustomer extends Command
      */
     public function handle()
     {
-        $query = config('quickbooks.customer.model')::query();
+        $config=config('quickbooks.customer');
 
-        collect(config('quickbooks.customer.conditions'))
+        $query = $config('model')::query();
+
+        collect($config('conditions'))
             ->each(function($params, $condition) use (&$query) {
                 if (method_exists($query, $condition))
                     $query->$condition(...$params);
@@ -56,72 +58,81 @@ class QBCustomer extends Command
              $query->whereIn('id', $ids);
         } else {
              $query
-                ->whereNull(config('quickbooks.customer.qb_customer_id'))
+                ->whereNull($config('qb_customer_id'))
                 ->limit($this->option('limit'));
         }
 
-        $this->info($query->toSql());
+        $customers = $query->get();
+
+        $quickbooks = new QuickBookHelper();
 
 
-        // $users = $query->get();
+        foreach ($customers as $customer)
+        {
+            try
+            {
+                $this->info("Customer sync #{$customer->id}");
+                $params = $this->prepareData($customer);
+                $objMethod = 'create';
+                $apiMethod = 'Add';
+                $customerId = $customer[$config('qb_customer_id')] ?? null;
 
-        // $quickbooks = new QuickBookHelper();
+                if (!$customerId)
+                {
+                    $firstName = data_get($customer, $config('given_name'));
+                    $lastName = data_get($customer, $config('family_name'));
 
-        // foreach ($users as $user) {
-        //     try {
-        //         $this->info("User Sync #{$user->id}");
-        //         $params = [];
-        //         $params[] = $this->prepareData($user);
-        //         $objMethod = 'create';
-        //         $apiMethod = 'Add';
-        //         $customerId = $user->qb_customer_id;
-        //         if (!$customerId) {
-        //             $client = $user->client;
-        //             if (!$client->firstName || !$client->lastName) {
-        //                 $this->info("Client record is empty. so won't sync.");
-        //                 continue;
-        //             }
-        //             try {
-        //                 $result = $quickbooks->dsCall('Query', "SELECT Id FROM Customer WHERE GivenName='{$client->firstName}' AND FamilyName='{$client->lastName}'");
-        //                 if ($result) {
-        //                     $customerId = @$result[0]->Id;
-        //                 }
-        //             } catch (\Exception $e) {
-        //             }
-        //         }
+                    if (!$firstName || !$lastName)
+                    {
+                        $this->info("record is empty. so won't sync.");
+                        continue;
+                    }
 
-        //         if ($customerId) {
-        //             $targetCustomerArray = $quickbooks->find('Customer', $customerId);
-        //             if (!empty($targetCustomerArray) && sizeof($targetCustomerArray) == 1) {
-        //                 $theCustomer = current($targetCustomerArray);
-        //                 $objMethod = 'update';
-        //                 $apiMethod = 'Update';
-        //                 array_unshift($params, $theCustomer);
-        //             } else {
-        //                 // If customer not exists and not forced, then skip new customer create, otherwise create as new customer
-        //                 if (!$this->option('force')) {
-        //                     $message = "Customer Not Exists #{$customerId} for user #{$user->id}";
-        //                     $this->info("Error: {$message}");
-        //                     Log::channel('quickbook')->error($message);
-        //                     continue;
-        //                 }
-        //                 $user->qb_customer_id = null; // Reset for update new customer id
-        //             }
-        //         }
+                    try {
+                        $result = $quickbooks->dsCall('Query', "SELECT Id FROM Customer WHERE GivenName='{$firstName}' AND FamilyName='{$lastName}'");
+                        if ($result) {
+                            $customerId = data_get($result, '0.Id');
+                        }
+                    } catch (Exception $e) {
+                        $this->error("Exception occurred!");
+                        $this->error($e->getMessage());
+                    }
+                }
 
-        //         $QBCustomer = Customer::$objMethod(...$params);
-        //         $result = $quickbooks->dsCall($apiMethod, $QBCustomer);
+                if ($customerId)
+                {
+                    $targetCustomerArray = $quickbooks->find('Customer', $customerId);
+                    if (!empty($targetCustomerArray) && sizeof($targetCustomerArray) == 1)
+                    {
+                        $theCustomer = current($targetCustomerArray);
+                        $objMethod = 'update';
+                        $apiMethod = 'Update';
+                        array_unshift($params, $theCustomer);
+                    } else {
+                        if (!$this->option('force'))
+                        {
+                            $message = "Customer not exists #{$customerId} for user #{$customer->id}";
+                            $this->info("Error: {$message}");
+                            Log::channel('quickbooks')->error($message);
+                            continue;
+                        }
+                        $customer->qb_customer_id = null;
+                    }
+                }
+                $QBCustomer = Customer::$objMethod(...$params);
+                $result = $quickbooks->dsCall($apiMethod, $QBCustomer);
 
-        //         if ($result && !$user->qb_customer_id) {
-        //             $user->update(['qb_customer_id' => $result->Id]);
-        //         }
-        //     } catch (\Exception $e) {
-        //         $user->increment('sync_failed');
-        //         $message = "{$e->getFile()}@{$e->getLine()} ==> {$e->getMessage()} for user #{$user->id}";
-        //         $this->info("Error: {$message}");
-        //         Log::channel('quickbook')->error($message);
-        //     }
-        // }
+                if ($result && $customer[$config('qb_customer_id')])
+                    $customer->update([$config('qb_customer_id') => $result->Id]);
+
+            } catch (Exception $e) {
+                $customer->increment('sync_failed');
+                $message = "{$e->getFile()}@{$e->getLine()} ==> {$e->getMessage()} for user #{$customer->id}";
+                $this->info("Error: {$message}");
+                Log::channel('quickbook')->error($message);
+            }
+
+        }
     }
 
     private function prepareData($customerModel)
