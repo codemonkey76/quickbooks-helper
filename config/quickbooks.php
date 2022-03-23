@@ -9,6 +9,31 @@ return [
         'shipitem' => ''
     ],
 
+    'customer' => [
+        'customer_model' => 'App\Models\Client',
+        'qb_customer_id' => 'qb_customer_id',
+        'fully_qualified_name' => 'name',
+        'email_address' => 'email',
+        'phone' => 'phone',
+        'display_name' => 'name',
+        'given_name' => 'firstName',
+        'family_name' => 'lastName',
+        'company_name' => 'businessName',
+        'address_line_1' => 'address',
+        'city' => 'city',
+        'suburb' => 'suburb',
+        'postcode' => 'postcode',
+        'country' => 'country',
+        'scopes' => [
+            'role' => [
+                'Approved'
+            ],
+            'with' => [
+                'client'
+            ]
+        ]
+    ],
+
     'data_service' => [
         'auth_mode' => 'oauth2',
         'base_url' => env('QUICKBOOKS_API_URL', config('app.env') === 'production' ? 'Production' : 'Development'),
