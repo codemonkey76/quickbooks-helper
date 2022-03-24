@@ -22,7 +22,7 @@ return [
                 'orders'
             ],
             'sync_failed' => [
-                '>',
+                '<',
                 3
             ]
         ],

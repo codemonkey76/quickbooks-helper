@@ -84,7 +84,7 @@ class QBCustomer extends Command
 
                     if (!$firstName || !$lastName)
                     {
-                        $this->info("record is empty. so won't sync.");
+                        $this->info($config['given_name'] . ' and ' . $config['family_name'] . ' are required, skipping sync');
                         continue;
                     }
 
