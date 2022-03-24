@@ -18,7 +18,7 @@ class QBCustomer extends Command
      *
      * @var string
      */
-    protected $signature = 'qb:customer {--id=*} {--limit=20} {--force}';
+    protected $signature = 'qb:customer {--id=*} {--limit=20} {--force} {--verbose}';
 
     /**
      * The console command description.
@@ -45,25 +45,36 @@ class QBCustomer extends Command
     public function handle()
     {
         $config=config('quickbooks.customer');
-
+        $queryString = $config['model'] . '::query()';
         $query = $config['model']::query();
 
         collect($config['conditions'])
-            ->each(function($params, $condition) use (&$query) {
+            ->each(function($params, $condition) use (&$query, &$queryString) {
                 if (method_exists($query, $condition))
+                {
+                    $queryString .= "->" . $condition . "(" . implode(",", $params) . ")";
                     $query->$condition(...$params);
+                }
             });
 
         if ($ids = $this->option('id')) {
-             $query->whereIn('id', $ids);
+            $queryString .= "->whereIn('id', [" . implode(",", $ids) . "]";
+            $query->whereIn('id', $ids);
         } else {
-             $query
+            $queryString .= "->whereNull('" . $config['qb_customer_id'] . "')->limit(" . $this->option('limit') . ")";
+            $query
                 ->whereNull($config['qb_customer_id'])
                 ->limit($this->option('limit'));
         }
 
+        $queryString .= "->get()";
         $customers = $query->get();
 
+        if ($this->option('verbose')) {
+            $this->info("Executing Query: " . $queryString);
+            $this->info("Got {$customers->count()} customer(s)");
+        }
+            
         $quickbooks = new QuickBookHelper();
 
 
