@@ -21,7 +21,8 @@ return [
             'has' => [
                 'orders'
             ],
-            'sync_failed' => [
+            'where' => [
+                'sync_failed',
                 '<',
                 3
             ]
