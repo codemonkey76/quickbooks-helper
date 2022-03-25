@@ -4,7 +4,8 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use Codemonkey76\Quickbooks\Services\QuickbooksHelper;
-
+use Illuminate\Support\Facades\Log;
+use QuickBooksOnline\API\Facades\Item;
 
 class QBItem extends Command
 {
@@ -41,38 +42,81 @@ class QBItem extends Command
 
         $items = $query->get();
 
-        $startPosition = 1;
-        $maxResults = 100;
 
-        $model = config('quickbooks.items.model');
-
-        do
+        foreach ($items as $item)
         {
-            $rows = $qb_helper->dsCall('Query', "SELECT * FROM Item WHERE Active=true STARTPOSITION {$startPosition} MAXRESULTS {$maxResults}");
-            if ($rows) {
-                collect($rows)->each(function ($row) use ($itemMap, $model) {
-                    $model::updateOrCreate([$itemMap['qb_item_id'] => $row->Id],[
-                        $itemMap['name'] => $row->Name,
-                        $itemMap['description'] => $row->Description,
-                        $itemMap['active'] => $row->Active === 'true',
-                        $itemMap['fully_qualified_name'] => $row->FullyQualifiedName,
-                        $itemMap['taxable'] => $row->Taxable === 'true',
-                        $itemMap['sales_tax_included'] => $row->SalesTaxIncluded === 'true',
-                        $itemMap['unit_price'] => $row->UnitPrice ?? 0,
-                        $itemMap['income_account_ref'] => $row->IncomeAccountRef,
-                        $itemMap['type'] => $row->Type,
-                        $itemMap['purchase_tax_included'] => $row->PurchaseTaxIncluded === 'true',
-                        $itemMap['purchase_cost'] => $row->PurchaseCost ?? 0,
-                        $itemMap['track_qty_on_hand'] => $row->TrackQtyOnHand === 'true',
-                        $itemMap['sales_tax_code_ref'] => $row->SalesTaxCodeRef
-                    ]);
-                });
+            try
+            {
+                $this->info("Item #{$item->id}...");
+
+                $item_params[] =$this->prepareData($item);
+
+                $objMethod = 'create';
+                $apiMethod = 'Add';
+
+                $qb_item_id = data_get($item, $itemMap['qb_item_id']);
+                if ($qb_item_id)
+                {
+                    $targetItemArray = $qb_helper->find('Item', $qb_item_id);
+
+                    if (!empty($targetItemArray) && sizeof($targetItemArray) === 1)
+                    {
+                        $theItem = current($targetItemArray);
+                        $objMethod = 'update';
+                        $apiMethod = 'Update';
+                        array_unshift($item_params, $theItem);
+                    } else {
+                        if (!$this->option('force'))
+                        {
+                            $message = "QbItem does not exist #{$qb_item_id} for item id: #{$item->id}";
+                            $this->error("Error: {$message}");
+                            Log::channel('quickbook')->error($message);
+                            continue;
+                        }
+                        $item->$itemMap['qb_item_id'] = null;
+                    }
+                }
+
+                $QbItem = Item::$objMethod(...$item_params);
+                $result = $qb_helper->dsCall($apiMethod, $QbItem);
+
+                if ($result)
+                {
+                    $this->info("Quickbooks Item ID #{$result->Id}");
+                    $item->update([$itemMap['qb_item_id'] => $result->Id]);
+                }
+
+                $item->$itemMap['sync'] = 0;
+                $item->save();
+            } catch(\Exception $e) {
+                $item->increment($itemMap['sync_failed']);
+                $message = "{$e->getFile()}@{$e->getLine()} ==> {$e->getMessage()} for order #{$item->id}";
+                $this->error("Error: {$message}");
+                Log::channel('quickbook')->error($message);
             }
-            $startPosition += $maxResults;
-
-        } while(!is_null($rows) && is_array($rows) && count($rows) >= $maxResults);
-
-
+        }
         return 0;
     }
+
+    public function prepareData($item)
+    {
+        $itemMap = config('quickbooks.items.attributeMap');
+
+        return [
+            'Name' => data_get($item, $itemMap['name']),
+            'Description' => data_get($item, $itemMap['description']),
+            'Active' => data_get($item, $itemMap['active']),
+            'FullyQualifiedName' => data_get($item, $itemMap['fully_qualified_name']),
+            'Taxable' => data_get($item, $itemMap['taxable']),
+            'SalesTaxIncluded' => data_get($item, $itemMap['sales_tax_included']),
+            'UnitPrice' => data_get($item, $itemMap['unit_price']),
+            'IncomeAccountRef' => data_get($item, $itemMap['income_account_ref']),
+            'Type' => data_get($item, $itemMap['type']),
+            'PurchaseTaxIncluded' => data_get($item, $itemMap['puchase_tax_included']),
+            'PurchaseCost' => data_get($item, $itemMap['purchase_cost']),
+            'TrackQtyOnHand' => data_get($item, $itemMap['track_qty_on_hand']),
+            'SalesTaxCodeRef' => data_get($item, $itemMap['sales_tax_code_ref'])
+        ];
+    }
+
 }

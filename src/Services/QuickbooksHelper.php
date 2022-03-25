@@ -65,6 +65,11 @@ class QuickbooksHelper
         static::$customerFilter = $customerFilter;
     }
 
+    public function applyItemFilter($query)
+    {
+        return call_user_func(static::$itemFilter, $query);
+    }
+    
     public function applyInvoiceFilter($query)
     {
         return call_user_func(static::$invoiceFilter, $query);
