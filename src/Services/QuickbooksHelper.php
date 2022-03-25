@@ -13,40 +13,16 @@ class QuickbooksHelper
     public $app;
     public $dataService;
 
+    protected static Closure $itemQuery;
+    protected static Closure $itemFilter;
     protected static Closure $invoiceQuery;
     protected static Closure $invoiceFilter;
-
     protected static Closure $customerQuery;
     protected static Closure $customerFilter;
 
-    public static function setCustomerQuery(Closure $customerFunction)
+    public function items()
     {
-        static::$customerQuery = $customerFunction;
-    }
-
-    public static function setCustomerFilter(Closure $customerFilter)
-    {
-        static::$customerFilter = $customerFilter;
-    }
-
-    public function customers()
-    {
-        return call_user_func(static::$customerQuery);
-    }
-
-    public function applyCustomerFilter($query)
-    {
-        return call_user_func(static::$customerFilter, $query);
-    }
-
-    public static function setInvoiceQuery(Closure $invoiceFunction)
-    {
-        static::$invoiceQuery = $invoiceFunction;
-    }
-
-    public static function setInvoiceFilter(Closure $invoiceFilter)
-    {
-        static::$invoiceFilter = $invoiceFilter;
+        return call_user_func(static::$itemQuery);
     }
 
     public function invoices()
@@ -54,9 +30,49 @@ class QuickbooksHelper
         return call_user_func(static::$invoiceQuery);
     }
 
+    public function customers()
+    {
+        return call_user_func(static::$customerQuery);
+    }
+
+    public static function setItemQuery(Closure $itemFunction)
+    {
+        static::$itemQuery = $itemFunction;
+    }
+
+    public static function setInvoiceQuery(Closure $invoiceFunction)
+    {
+        static::$invoiceQuery = $invoiceFunction;
+    }
+
+    public static function setCustomerQuery(Closure $customerFunction)
+    {
+        static::$customerQuery = $customerFunction;
+    }
+
+    public static function setItemFilter(Closure $itemFilter)
+    {
+        static::$itemFilter = $itemFilter;
+    }
+
+    public static function setInvoiceFilter(Closure $invoiceFilter)
+    {
+        static::$invoiceFilter = $invoiceFilter;
+    }
+
+    public static function setCustomerFilter(Closure $customerFilter)
+    {
+        static::$customerFilter = $customerFilter;
+    }
+
     public function applyInvoiceFilter($query)
     {
         return call_user_func(static::$invoiceFilter, $query);
+    }
+
+    public function applyCustomerFilter($query)
+    {
+        return call_user_func(static::$customerFilter, $query);
     }
 
     public function __construct()
