@@ -2,7 +2,7 @@
 
 namespace Codemonkey76\Quickbooks\Commands;
 
-use Codemonkey76\Quickbooks\Services\QuickBookHelper;
+use Codemonkey76\Quickbooks\Services\QuickbooksHelper;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
@@ -28,6 +28,9 @@ class QBInvoice extends Command
      */
     protected $description = 'Sync configured model to quickbook invoices';
 
+
+    private $orderTaxcode = null;
+
     /**
      * Create a new command instance.
      *
@@ -45,55 +48,43 @@ class QBInvoice extends Command
      */
     public function handle()
     {
-        $this->settings = Setting::query()->get()->pluck('meta_value', 'meta_key');
+        $config = config('quickbooks.invoice.attributeMap');
+        $qb_helper = new QuickbooksHelper();
 
-        if (!isset($this->settings['quickbook.austax']) ||
-            !isset($this->settings['quickbook.overseastax']) ||
-            !isset($this->settings['quickbook.defaultitem']) ||
-            !isset($this->settings['quickbook.paymentaccount']) ||
-            !isset($this->settings['quickbook.shippingtax']) ||
-            !isset($this->settings['quickbook.shipitem'])
-        ) {
-            $message = "Before sync please setup the quickbooks configuration from backend";
-            $this->info("Error: {$message}");
-            Log::channel('quickbook')->error($message);
-            return;
-        }
+        $query = $qb_helper->invoices();
 
-        $query = Order::query()->with(['user', 'items'])->whereHas('user', function ($q) {
-            $q->whereNotNull('qb_customer_id');
-        })->whereNotNull('paymentid');
-        if ($ids = $this->option('id')) {
+        if ($ids = $this->option('id'))
             $query->whereIn('id', $ids);
-        } else {
-            $query->where(function ($q) {
-                $q->whereNull('qb_invoice_id')->orWhereNull('qb_payment_id')->orWhere('sync', 1);
-            });
-            $query->where('sync_failed', '<', self::MAX_FAILED)->limit($this->option('limit'));
-        }
+        else
+            $qb_helper->applyInvoiceFilter($query);
 
-        $orders = $query->get();
-        $quickbooks = new QuickBookHelper();
+        $invoices = $query->get();
 
-        foreach ($orders as $order) {
+
+        foreach ($invoices as $invoice) {
             try {
-                $this->info("Order #{$order->id}....");
-                $user = $order->user;
-                $this->orderTaxcode = (@$order->billing_country === 'AU') ? $this->settings['quickbook.austax'] : $this->settings['quickbook.overseastax'];
-                if (!$user->qb_customer_id) {
-                    $message = "Customer not yet synced, Please approve the order customer or sync `php artisan qb:customer --id={$user->id}` for order #{$order->id}";
-                    $this->info("Error: {$message}");
+                $this->info("Invoice #{$invoice->id}....");
+
+                $customer = data_get($invoice, $config['customer']);
+
+                $this->orderTaxcode = data_get($invoice, $config['billing_country']) === 'AU' ? config('quickbooks.invoice.settings.austax') : config('quickbooks.invoice.settings.overseastax');
+
+                if (!data_get($customer, config('quickbooks.customer.attributeMap.qb_customer_id'))) {
+                    $message = "Customer not yet synced, Please approve the order customer or sync `php artisan qb:customer --id={$customer->id}` for invoice #{$invoice->id}";
+                    $this->error("Error: {$message}");
                     Log::channel('quickbook')->error($message);
                     continue;
                 }
 
-                $invoice_params = $payment_params = $creditmemo_params = [];
-                $invoice_params[] = $this->prepareData($order);
-                $objMethod = $paymentObjMethod = $memoObjMethod = 'create';
-                $apiMethod = $paymentApiMethod = $memoApiMethod = 'Add';
+                $invoice_params[] = $this->prepareData($invoice);
+                $this->info(json_encode($invoice_params));
+                return 0;
+                $objMethod = 'create';
+                $apiMethod = 'Add';
 
-                if ($order->qb_invoice_id) {
-                    $targetInvoiceArray = $quickbooks->find('Invoice', $order->qb_invoice_id);
+                $qb_invoice_id = data_get($invoice, $config['qb_invoice_id']);
+                if ($qb_invoice_id) {
+                    $targetInvoiceArray = $qb_helper->find('Invoice', $qb_invoice_id);
                     if (!empty($targetInvoiceArray) && sizeof($targetInvoiceArray) == 1) {
                         $theInvoice = current($targetInvoiceArray);
                         $objMethod = 'update';
@@ -102,93 +93,40 @@ class QBInvoice extends Command
                     } else {
                         // If invoice not exists and not forced, then skip new invoice create, otherwise create as new invoice
                         if (!$this->option('force')) {
-                            $message = "Invoice Not Exists #{$order->qb_invoice_id}  for order #{$order->id}";
-                            $this->info("Error: {$message}");
+                            $message = "Invoice Not Exists #{$qb_invoice_id}  for order #{$invoice->id}";
+                            $this->error("Error: {$message}");
                             Log::channel('quickbook')->error($message);
                             continue;
                         }
-                        $order->qb_invoice_id = null; // Reset for update new invoice id
-                    }
-                }
-
-                if ($order->qb_payment_id) {
-                    $targetPaymentArray = $quickbooks->find('Payment', $order->qb_payment_id);
-                    if (!empty($targetPaymentArray) && sizeof($targetPaymentArray) == 1) {
-                        $thePayment = current($targetPaymentArray);
-                        $paymentObjMethod = 'update';
-                        $paymentApiMethod = 'Update';
-                        $payment_params[] = $thePayment;
-                    } else {
-                        // If payment not exists and not forced, then skip new customer create, otherwise create as new payment
-                        if (!$this->option('force')) {
-                            $message = "Payment Not Exists #{$order->qb_payment_id}  for order #{$order->id}";
-                            $this->info("Error: {$message}");
-                            Log::channel('quickbook')->error($message);
-                            continue;
-                        }
-                        $order->qb_payment_id = null; // Reset for update new payment id
-                    }
-                }
-
-                if ($order->qb_creditmemo_id) {
-                    $targetMemoArray = $quickbooks->find('CreditMemo', $order->qb_creditmemo_id);
-                    if (!empty($targetMemoArray) && sizeof($targetMemoArray) == 1) {
-                        $theMemo = current($targetMemoArray);
-                        $memoObjMethod = 'update';
-                        $memoApiMethod = 'Update';
-                        $creditmemo_params[] = $theMemo;
-                    } else {
-                        // If memo not exists and not forced, then skip new customer create, otherwise create as new memo
-                        if (!$this->option('force')) {
-                            $message = "Memo Not Exists #{$order->qb_creditmemo_id}  for order #{$order->id}";
-                            $this->info("Error: {$message}");
-                            Log::channel('quickbook')->error($message);
-                            continue;
-                        }
-                        $order->qb_creditmemo_id = null; // Reset for update new memo id
+                        $invoice->$config['qb_invoice_id'] = null; // Reset for update new invoice id
                     }
                 }
 
                 $QBInvoice = Invoice::$objMethod(...$invoice_params);
-                $result = $quickbooks->dsCall($apiMethod, $QBInvoice);
+                $result = $qb_helper->dsCall($apiMethod, $QBInvoice);
 
                 if ($result) {
-                    $this->info("Order Invoice Id #{$result->Id}");
-                    $order->qb_invoice_id = $result->Id;
-                    if ($order->paymentid) {
-                        $payment_params[] = $this->preparePaymentData($order, $result);
-                        $QBPayment = Payment::$paymentObjMethod(...$payment_params);
-                        $paymentResult = $quickbooks->dsCall($paymentApiMethod, $QBPayment);
-                        if ($paymentResult) {
-                            $this->info("Order Payment Id #{$paymentResult->Id}");
-                            $order->qb_payment_id = $paymentResult->Id;
-                        }
-                    }
-
-                    if ($order->credits > 0) {
-                        $creditmemo_params[] = $this->prepareCreditMemoData($order, $result);
-                        $QBMemo = CreditMemo::$memoObjMethod(...$creditmemo_params);
-                        $memoResult = $quickbooks->dsCall($memoApiMethod, $QBMemo);
-                        if ($memoResult) {
-                            $this->info("Order Credit Memo Id #{$memoResult->Id}");
-                            $order->qb_creditmemo_id = $memoResult->Id;
-                        }
-                    }
+                    $this->info("Quickbooks Invoice Id #{$result->Id}");
+                    $invoice->update([$config['qb_invoice_id'] => $result->Id]);
                 }
-                $order->sync = 0;
-                $order->save();
+
+                $invoice->$config['sync'] = 0;
+                $invoice->save();
             } catch (\Exception $e) {
-                $order->increment('sync_failed');
-                $message = "{$e->getFile()}@{$e->getLine()} ==> {$e->getMessage()} for order #{$order->id}";
+                $invoice->increment('sync_failed');
+                $message = "{$e->getFile()}@{$e->getLine()} ==> {$e->getMessage()} for order #{$invoice->id}";
                 $this->info("Error: {$message}");
                 Log::channel('quickbook')->error($message);
             }
         }
     }
 
-    private function prepareData($order)
+    private function prepareData($invoice)
     {
+        $settings = config('quickbooks.invoice.settings');
+        $itemMapping = config('quickbooks.items.attributeMap');
         $lines = [];
+
         foreach ($order->items as $item) {
             $qb_item_id = null;
 
@@ -258,60 +196,4 @@ class QBInvoice extends Command
         ];
     }
 
-    private function preparePaymentData($order, $invoice)
-    {
-        return [
-            "DepositToAccountRef" => [
-                "value" => $this->settings['quickbook.paymentaccount']
-            ],
-            "TxnDate" => $order->created_at->toDateString(),
-            "TotalAmt" => $order->total,
-            "Line" => [
-                [
-                    "Amount" => $order->total,
-                    "LinkedTxn" => [
-                        ["TxnId" => $invoice->Id, "TxnType" => "Invoice"]
-                    ]
-                ]
-            ],
-            "CustomerRef" => [
-                "value" => $order->user->qb_customer_id
-            ],
-            "PaymentMethodRef" => [
-                "value" => ($order->gateway == Order::GATEWAY_STRIPE) ? $this->settings['quickbook.stripemethod'] : $this->settings['quickbook.paypalmethod']
-            ],
-            "PrivateNote" => "GatewayID {$order->paymentid}"
-        ];
-    }
-
-    private function prepareCreditMemoData($order, $invoice)
-    {
-        return [
-            'CustomerRef' => [
-                'value' => $order->user->qb_customer_id
-            ],
-            'InvoiceRef' => [
-                'value' => $invoice->Id
-            ],
-            'TotalAmt' => $order->credits,
-            'TxnDate' => $order->created_at->toDateString(),
-            'Line' => [
-                [
-                    'Description' => 'Credits Applied From Website',
-                    "Amount" => $order->credits,
-                    "DetailType" => "SalesItemLineDetail",
-                    "SalesItemLineDetail" => [
-                        "ItemRef" => [
-                            "name" => "Website Credits",
-                            "value" => $this->settings['quickbook.creditmemoitem'],
-                        ],
-                        "TaxCodeRef" => [
-                            "value" => $this->orderTaxcode
-                        ],
-                        "Qty" => 1,
-                    ],
-                ]
-            ]
-        ];
-    }
 }

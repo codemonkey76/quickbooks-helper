@@ -22,7 +22,7 @@ The package uses the [auto registration feature](https://laravel.com/docs/packag
 
 1. You will need a ```quickBooksToken``` relationship on your ```User``` model.  There is a trait named ```Codemonkey76\QuickBooks\HasQuickBooksToken```, which you can include on your ```User``` model, which will setup the relationship. To do this implement the following:
 
-Add ```use Codemonkey76\QuickBooks\HasQuickBooksToken;``` to your service container at the top of User.php
+Add ```use Codemonkey76\QuickBooks\HasQuickBooksToken;``` to at the top of User.php
 and also add the trait within the class. For example:
 
 ```php
@@ -90,6 +90,57 @@ Psy Shell v0.11.2 (PHP 8.1.2 — cli) by Justin Hileman
 
 You can call any of the resources as documented [in the SDK](https://intuit.github.io/QuickBooks-V3-PHP-SDK/quickstart.html).
 
+## Using the included artisan commands
+
+If you want to use the included artisan commands, you will need to provide the query to use to retrieve your data.
+In your AppServiceProvider's boot method add your customer queries.
+```php
+QuickbooksHelper::setCustomerQuery(function() {
+	return User::query()
+	    ->with('client')
+	    ->role(User::ROLE_APPROVED);
+});
+
+QuickbooksHelper::setCustomerFilter(function($query) {
+	$query
+	    ->has('orders')
+	    ->whereNull('qb_customer_id')
+	    ->where('sync_failed', '<', 3);
+});
+```
+Once you have set the customerQuery and the customerFilter, you can then run the artisan command to sync customers with quickbooks.
+```bash
+php artisan qb:customer
+```
+
+In this provided example only customers that have orders and have not failed syncing more than 3 times and have not already been synced with quickbooks will be synced.
+If you specify a customer to sync by ID like this:
+```bash
+php artisan qb:customer --id=123
+```
+The customer filter will be ignored, this enables you to update an existing customer that has already been synced.
+
+Similarly to use the qb:invoice command you will also need to set the invoiceQuery and invoiceFilter, e.g.
+```php
+QuickbooksHelper::setInvoiceQuery(function() {
+	return Order::query()
+	    ->with(['user', 'items'])
+	    ->whereHas('user', function ($q) {
+	        $q->whereNotNull('qb_customer_id');
+         })
+        ->whereNotNull('paymentid');
+});
+
+QuickbooksHelper::setInvoiceFilter(function(&$query) {
+	$query->where(function ($q) {
+	    $q->whereNull('qb_invoice_id')
+	    ->orWhereNull('qb_payment_id')
+	    ->orWhere('sync', 1);
+     })
+     ->where('sync_failed', '<', 3)
+});
+
+```
 ## Middleware
 
 If you have routes that will be dependent on the user's account having a usable QuickBooks OAuth token, there is an included middleware ```Codemonkey76\Quickbooks\Http\Middleware\QuickbooksConnected``` that gets registered as ```quickbooks``` that will ensure the account is linked and redirect them to the `connect` route if needed.

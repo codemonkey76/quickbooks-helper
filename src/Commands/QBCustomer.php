@@ -3,6 +3,7 @@
 namespace Codemonkey76\Quickbooks\Commands;
 
 use Codemonkey76\Quickbooks\Services\QuickBookHelper;
+use Codemonkey76\Quickbooks\Services\QuickbooksHelper;
 use Exception;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
@@ -12,7 +13,6 @@ use QuickBooksOnline\API\Facades\Customer;
 
 class QBCustomer extends Command
 {
-    const MAX_FAILED = 3;
     /**
      * The name and signature of the console command.
      *
@@ -42,41 +42,19 @@ class QBCustomer extends Command
      *
      * @return int
      */
-    public function handle()
+    public function handle(): int
     {
-        $config=config('quickbooks.customer');
-        $queryString = $config['model'] . '::query()';
-        $query = $config['model']::query();
+        $config = config('quickbooks.customer.attributeMap');
+        $qb_helper = new QuickbooksHelper();
 
-        collect($config['conditions'])
-            ->each(function($params, $condition) use (&$query, &$queryString) {
-                if (method_exists($query, $condition))
-                {
-                    $queryString .= "->" . $condition . "(" . implode(",", $params) . ")";
-                    $query->$condition(...$params);
-                }
-            });
+        $query = $qb_helper->customers();
 
-        if ($ids = $this->option('id')) {
-            $queryString .= "->whereIn('id', [" . implode(",", $ids) . "]";
+        if ($ids = $this->option('id'))
             $query->whereIn('id', $ids);
-        } else {
-            $queryString .= "->whereNull('" . $config['qb_customer_id'] . "')->limit(" . $this->option('limit') . ")";
-            $query
-                ->whereNull($config['qb_customer_id'])
-                ->limit($this->option('limit'));
-        }
+        else
+            $qb_helper->applyCustomerFilter($query);
 
-        $queryString .= "->get()";
         $customers = $query->get();
-
-        if ($this->option('verbose')) {
-            $this->info("Executing Query: " . $queryString);
-            $this->info("Got {$customers->count()} customer(s)");
-        }
-            
-        $quickbooks = new QuickBookHelper();
-
 
         foreach ($customers as $customer)
         {
@@ -95,24 +73,25 @@ class QBCustomer extends Command
 
                     if (!$firstName || !$lastName)
                     {
-                        $this->info($config['given_name'] . ' and ' . $config['family_name'] . ' are required, skipping sync');
+                        $this->warn($config['given_name'] . ' and ' . $config['family_name'] . ' are required, skipping sync');
                         continue;
                     }
 
                     try {
-                        $result = $quickbooks->dsCall('Query', "SELECT Id FROM Customer WHERE GivenName='{$firstName}' AND FamilyName='{$lastName}'");
+                        $result = $qb_helper->dsCall('Query', "SELECT Id FROM Customer WHERE GivenName='{$firstName}' AND FamilyName='{$lastName}'");
                         if ($result) {
                             $customerId = data_get($result, '0.Id');
                         }
                     } catch (Exception $e) {
                         $this->error("Exception occurred!");
                         $this->error($e->getMessage());
+                        return 1;
                     }
                 }
 
                 if ($customerId)
                 {
-                    $targetCustomerArray = $quickbooks->find('Customer', $customerId);
+                    $targetCustomerArray = $qb_helper->find('Customer', $customerId);
                     if (!empty($targetCustomerArray) && sizeof($targetCustomerArray) == 1)
                     {
                         $theCustomer = current($targetCustomerArray);
@@ -131,7 +110,7 @@ class QBCustomer extends Command
                     }
                 }
                 $QBCustomer = Customer::$objMethod(...$params);
-                $result = $quickbooks->dsCall($apiMethod, $QBCustomer);
+                $result = $qb_helper->dsCall($apiMethod, $QBCustomer);
 
                 if ($result && $customer[$config['qb_customer_id']])
                     $customer->update([$config['qb_customer_id'] => $result->Id]);
@@ -139,14 +118,14 @@ class QBCustomer extends Command
             } catch (Exception $e) {
                 $customer->increment('sync_failed');
                 $message = "{$e->getFile()}@{$e->getLine()} ==> {$e->getMessage()} for user #{$customer->id}";
-                $this->info("Error: {$message}");
+                $this->error("Error: {$message}");
                 Log::channel('quickbook')->error($message);
             }
-
         }
+        return 0;
     }
 
-    private function prepareData($customerModel)
+    private function prepareData($customerModel): array
     {
         $config = config('quickbooks.customer');
 

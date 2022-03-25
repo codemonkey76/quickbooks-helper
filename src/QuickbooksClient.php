@@ -13,6 +13,9 @@ class QuickbooksClient
     protected ReportService $report_service;
     protected Token $token;
 
+    protected static $customerQuery;
+    protected static $invoiceQuery;
+
     public function __construct($configs, Token $token)
     {
         $this->configs = $configs;

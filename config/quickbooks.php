@@ -2,46 +2,45 @@
 
 return [
     'invoice' => [
-        'austax' => '',
-        'overseastax' => '',
-        'paymentaccount' => '',
-        'shippingtax' => '',
-        'shipitem' => ''
+        'settings' => [
+            'austax' => '',
+            'overseastax' => '',
+            'defaultitem' => '',
+            'paymentaccount' => '',
+            'shippingtax' => '',
+            'shipitem' => ''
+        ],
+        'attributeMap' => [
+            'customer' => 'user',
+            'billing_country' => 'billing_country',
+            'qb_invoice_id' => 'qb_invoice_id',
+            'qb_payment_id' => 'qb_payment_id',
+            'qb_creditmemo_id' => 'qb_creditmemo_id',
+            'sync' => 'sync'
+        ],
+    ],
+    'item' => [
+        'attributeMap' => [
+
+        ]
     ],
 
     'customer' => [
-        'model' => 'App\Models\User',
-        'conditions' => [
-            'role' => [
-                'Approved'
-            ],
-            'with' => [
-                'client'
-            ],
-            'has' => [
-                'orders'
-            ],
-            'where' => [
-                'sync_failed',
-                '<',
-                3
-            ]
-        ],
-
-        'qb_customer_id' => 'qb_customer_id',
-        'fully_qualified_name' => 'name',
-        'email_address' => 'email',
-        'phone' => 'phone',
-        'display_name' => 'name',
-        'given_name' => 'client.firstName',
-        'family_name' => 'client.lastName',
-        'company_name' => 'businessName',
-        'address_line_1' => 'address',
-        'city' => 'city',
-        'suburb' => 'suburb',
-        'postcode' => 'postcode',
-        'country' => 'country',
-
+        'attributeMap' => [
+            'qb_customer_id' => 'qb_customer_id',
+            'fully_qualified_name' => 'name',
+            'email_address' => 'email',
+            'phone' => 'phone',
+            'display_name' => 'name',
+            'given_name' => 'client.firstName',
+            'family_name' => 'client.lastName',
+            'company_name' => 'businessName',
+            'address_line_1' => 'address',
+            'city' => 'city',
+            'suburb' => 'suburb',
+            'postcode' => 'postcode',
+            'country' => 'country',
+        ]
     ],
 
     'data_service' => [

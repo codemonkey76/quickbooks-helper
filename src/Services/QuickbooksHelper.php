@@ -2,14 +2,62 @@
 
 namespace Codemonkey76\Quickbooks\Services;
 
+use Closure;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-class QuickBookHelper
+class QuickbooksHelper
 {
     public $app;
     public $dataService;
+
+    protected static Closure $invoiceQuery;
+    protected static Closure $invoiceFilter;
+
+    protected static Closure $customerQuery;
+    protected static Closure $customerFilter;
+
+    public static function setCustomerQuery(Closure $customerFunction)
+    {
+        static::$customerQuery = $customerFunction;
+    }
+
+    public static function setCustomerFilter(Closure $customerFilter)
+    {
+        static::$customerFilter = $customerFilter;
+    }
+
+    public function customers()
+    {
+        return call_user_func(static::$customerQuery);
+    }
+
+    public function applyCustomerFilter($query)
+    {
+        return call_user_func(static::$customerFilter, $query);
+    }
+
+    public static function setInvoiceQuery(Closure $invoiceFunction)
+    {
+        static::$invoiceQuery = $invoiceFunction;
+    }
+
+    public static function setInvoiceFilter(Closure $invoiceFilter)
+    {
+        static::$invoiceFilter = $invoiceFilter;
+    }
+
+    public function invoices()
+    {
+        return call_user_func(static::$invoiceQuery);
+    }
+
+    public function applyInvoiceFilter($query)
+    {
+        return call_user_func(static::$invoiceFilter, $query);
+    }
 
     public function __construct()
     {
